@@ -13,10 +13,6 @@ type FixedWindow struct {
 	count       int
 }
 
-func NewFixedWindow(limit int, window time.Duration) *FixedWindow {
-	return &FixedWindow{limit: limit, window: window}
-}
-
 func (f *FixedWindow) Allow() bool {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -37,4 +33,8 @@ func (f *FixedWindow) Allow() bool {
 	// Allow and increment
 	f.count++
 	return true
+}
+
+func NewFixedWindow(limit int, window time.Duration) *FixedWindow {
+	return &FixedWindow{limit: limit, window: window}
 }
