@@ -35,6 +35,7 @@ func (f *FixedWindow) Allow() bool {
 	return true
 }
 
+// can be accessed by packages outside without altering the limit
 func NewFixedWindow(limit int, window time.Duration) *FixedWindow {
 	return &FixedWindow{limit: limit, window: window}
 }
