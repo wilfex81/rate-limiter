@@ -1,0 +1,2 @@
+# github.com/stretchr/testify v1.12.1
+## explicit; go 1.17
