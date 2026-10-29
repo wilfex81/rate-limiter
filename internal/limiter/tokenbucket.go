@@ -1,6 +1,7 @@
 package limiter
 
 import (
+	"errors"
 	"math"
 	"sync"
 	"time"
@@ -9,38 +10,49 @@ import (
 type TokenBucket struct {
 	mu       sync.Mutex
 	capacity float64
-	rate     float64
+	rate     float64 // tokens added per second
 	tokens   float64
 	last     time.Time
+	now      func() time.Time
 }
 
-func NewTokenBucket(capacity int, rate float64) *TokenBucket {
+func NewTokenBucket(capacity int, rate float64) (*TokenBucket, error) {
+	return newTokenBucket(capacity, rate, time.Now)
+}
+
+func newTokenBucket(capacity int, rate float64, now func() time.Time) (*TokenBucket, error) {
+	if capacity < 1 {
+		return nil, errors.New("capacity must be at least 1")
+	}
+	if rate <= 0 {
+		return nil, errors.New("rate must be positive")
+	}
 	return &TokenBucket{
 		capacity: float64(capacity),
 		rate:     rate,
-		tokens:   float64(capacity),
-		last:     time.Now(),
-	}
+		tokens:   float64(capacity), // starts full
+		last:     now(),
+		now:      now,
+	}, nil
 }
 
-func (t *TokenBucket) Allow() (bool, time.Duration) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
+func (b *TokenBucket) Allow() (bool, time.Duration) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 
-	now := time.Now()
-	elapsed := now.Sub(t.last).Seconds()
+	now := b.now()
+	elapsed := now.Sub(b.last).Seconds()
 	if elapsed < 0 {
-		elapsed = 0
+		elapsed = 0 // clock went backwards, ignore it
 	}
-	t.last = now
+	b.last = now
 
-	t.tokens = math.Min(t.capacity, t.tokens+elapsed*t.rate)
+	b.tokens = math.Min(b.capacity, b.tokens+elapsed*b.rate)
 
-	if t.tokens < 1 {
-		retry := (1 - t.tokens) / t.rate
-		return false, time.Duration(retry * float64(time.Second))
+	if b.tokens < 1 {
+		wait := (1 - b.tokens) / b.rate
+		return false, time.Duration(wait * float64(time.Second))
 	}
-
-	t.tokens--
+	b.tokens--
 	return true, 0
 }
