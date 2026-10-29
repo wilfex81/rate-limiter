@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-// Removes the edge burst if FixedWindow
+// Removes the edge burst of FixedWindow
 // Weighs the previous window by how much of it still overlaps
 type SlidingWindow struct {
 	mu          sync.Mutex
