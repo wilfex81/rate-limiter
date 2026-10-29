@@ -1,6 +1,7 @@
 package limiter
 
 import (
+	"errors"
 	"sync"
 	"time"
 )
@@ -9,33 +10,37 @@ type FixedWindow struct {
 	mu          sync.Mutex
 	limit       int
 	window      time.Duration
+	now         func() time.Time
 	windowStart time.Time
 	count       int
 }
 
-func (f *FixedWindow) Allow() bool {
+func NewFixedWindow(limit int, window time.Duration) (*FixedWindow, error) {
+	return newFixedWindow(limit, window, time.Now)
+}
+
+func newFixedWindow(limit int, window time.Duration, now func() time.Time) (*FixedWindow, error) {
+	if limit < 1 {
+		return nil, errors.New("limit must be at least 1")
+	}
+	if window <= 0 {
+		return nil, errors.New("window must be positive")
+	}
+	return &FixedWindow{limit: limit, window: window, now: now}, nil
+}
+
+func (f *FixedWindow) Allow() (bool, time.Duration) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	now := time.Now()
-	diff := now.Sub(f.windowStart)
 
-	// Reset window if elapsed time >= window duration
-	if diff >= f.window {
+	now := f.now()
+	if now.Sub(f.windowStart) >= f.window {
 		f.windowStart = now
 		f.count = 0
 	}
-
-	// Deny if the limit already reached
 	if f.count >= f.limit {
-		return false
+		return false, f.windowStart.Add(f.window).Sub(now)
 	}
-
-	// Allow and increment
 	f.count++
-	return true
-}
-
-// can be accessed by packages outside without altering the limit
-func NewFixedWindow(limit int, window time.Duration) *FixedWindow {
-	return &FixedWindow{limit: limit, window: window}
+	return true, 0
 }
