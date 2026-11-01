@@ -1,0 +1,7 @@
+services:
+  rate-limiter:
+    build: .
+    ports:
+      - "8080:8080"
+    command: ["-addr", ":8080", "-algo", "fixed", "-limit", "3", "-window", "1m"]
+    restart: unless-stopped
