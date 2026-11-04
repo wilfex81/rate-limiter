@@ -3,10 +3,53 @@ services:
     image: redis:7-alpine
     ports:
       - "6379:6379"
-    restart: unless-stopped
-  rate-limiter:
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 10
+
+  app1: &app
     build: .
+    image: rate-limiter:local
+    hostname: app1
+    command:
+      - "-addr=:8080"
+      - "-backend=redis"
+      - "-redis=redis:6379"
+      - "-limit=5"
+      - "-rate=0.1"
+      - "-trusted-proxies=172.28.0.10/32"
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/healthz"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  app2:
+    <<: *app
+    hostname: app2
+
+  nginx:
+    image: nginx:1.27-alpine
     ports:
-      - "8080:8080"
-    command: ["-addr", ":8080", "-algo", "fixed", "-limit", "3", "-window", "1m"]
-    restart: unless-stopped
+      - "8080:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      app1:
+        condition: service_healthy
+      app2:
+        condition: service_healthy
+    networks:
+      default:
+        ipv4_address: 172.28.0.10
+
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
