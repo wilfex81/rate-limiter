@@ -44,3 +44,24 @@ func ClientIP(r *http.Request) string {
 	}
 	return host
 }
+
+// Returns a key funnction that trusts the X-Real-IP header
+// only when the connection itself comes from on of the trusted networks.
+func ClientIPBehindProxy(trusted []*net.IPNet) func(*http.Request) string {
+	return func(r *http.Request) string {
+		direct := ClientIP(r)
+		ip := net.ParseIP(direct)
+		if ip == nil {
+			return direct
+		}
+		for _, n := range trusted {
+			if n.Contains(ip) {
+				if real := net.ParseIP(r.Header.Get("X-Real-IP")); real != nil {
+					return real.String()
+				}
+				break
+			}
+		}
+		return direct
+	}
+}

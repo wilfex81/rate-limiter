@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -58,4 +59,23 @@ func TestClientIP(t *testing.T) {
 
 	r.RemoteAddr = "not-an-address"
 	assert.Equal(t, "not-an-address", ClientIP(r))
+}
+
+func TestClientIPBehindProxy(t *testing.T) {
+	_, trusted, _ := net.ParseCIDR("10.0.0.0/8")
+	keyFn := ClientIPBehindProxy([]*net.IPNet{trusted})
+
+	req := func(remote, realIP string) *http.Request {
+		r := httptest.NewRequest(http.MethodGet, "/", nil)
+		r.RemoteAddr = remote
+		if realIP != "" {
+			r.Header.Set("X-Real-IP", realIP)
+		}
+		return r
+	}
+
+	assert.Equal(t, "9.9.9.9", keyFn(req("10.1.1.1:5000", "9.9.9.9")))  // trusted proxy
+	assert.Equal(t, "1.2.3.4", keyFn(req("1.2.3.4:5000", "9.9.9.9")))   // spoof attempt ignored
+	assert.Equal(t, "10.1.1.1", keyFn(req("10.1.1.1:5000", "")))        // no header
+	assert.Equal(t, "10.1.1.1", keyFn(req("10.1.1.1:5000", "garbage"))) // bad header
 }
