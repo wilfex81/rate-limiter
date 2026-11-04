@@ -6,9 +6,11 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -29,12 +31,18 @@ func main() {
 	limit := flag.Int("limit", 10, "requests per window (fixed, sliding) or burst size (token)")
 	window := flag.Duration("window", time.Minute, "window length (fixed, sliding)")
 	rate := flag.Float64("rate", 1, "tokens added per second (token)")
+	trusted := flag.String("trusted-proxies", "", "comma separated CIDRs of proxies whose X-Real-IP header is trusted")
 	flag.Parse()
 
 	allower, closeFn, err := buildAllower(*backend, *algo, *limit, *window, *rate, *redisAddr, *failOpen)
 	if err != nil {
 		log.Fatal(err)
 	}
+	keyFn, err := KeyFunc(*trusted)
+	if err != nil {
+		log.Fatal(err)
+	}
+	host, _ := os.Hostname()
 
 	r := chi.NewRouter()
 	r.Use(chimw.Recoverer)
@@ -46,9 +54,9 @@ func main() {
 
 	// rate limit is now in effect
 	r.Group(func(r chi.Router) {
-		r.Use(middleware.RateLimit(allower, middleware.ClientIP))
+		r.Use(middleware.RateLimit(allower, keyFn))
 		r.Get("/ping", func(w http.ResponseWriter, r *http.Request) {
-			w.Write([]byte("pong\n"))
+			w.Write([]byte("pong from " + host + "\n"))
 		})
 	})
 
@@ -137,4 +145,19 @@ func factory(algo string, limit int, window time.Duration, rate float64) (func()
 		}, refill, nil
 	}
 	return nil, 0, fmt.Errorf("unknown algorithm %q", algo)
+}
+
+func KeyFunc(cidrs string) (func(*http.Request) string, error) {
+	if cidrs == "" {
+		return middleware.ClientIP, nil
+	}
+	var nets []*net.IPNet
+	for _, c := range strings.Split(cidrs, ",") {
+		_, n, err := net.ParseCIDR(strings.TrimSpace(c))
+		if err != nil {
+			return nil, fmt.Errorf("bad -trusted-proxies entry %q: %w", c, err)
+		}
+		nets = append(nets, n)
+	}
+	return middleware.ClientIPBehindProxy(nets), nil
 }
