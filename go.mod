@@ -3,6 +3,7 @@ module github.com/wilfex81/rate-limiter
 go 1.26.5
 
 require (
+	github.com/go-chi/chi/v5 v5.5.0
 	github.com/redis/go-redis/v9 v9.23.0
 	github.com/stretchr/testify v1.12.1
 )

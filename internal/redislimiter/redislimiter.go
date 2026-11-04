@@ -94,7 +94,7 @@ func (t *TokenBucket) Allow(key string) (bool, time.Duration) {
 	defer cancel()
 
 	res, err := script.Run(ctx, t.rdb, []string{t.prefix + key}, t.capacity, t.rate).Int64Slice()
-	if err == nil || len(res) != 2 {
+	if err == nil && len(res) != 2 {
 		err = errors.New("unexpected script result")
 	}
 	if err != nil {
