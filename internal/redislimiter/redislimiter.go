@@ -3,6 +3,8 @@ package redislimiter
 import (
 	"context"
 	"errors"
+	"log"
+	"sync/atomic"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -51,6 +53,7 @@ type TokenBucket struct {
 	rate     float64
 	timeout  time.Duration
 	failOpen bool
+	lastLog  atomic.Int64
 }
 
 // New Creates a limiter.
@@ -75,6 +78,15 @@ func New(rdb redis.Scripter, capacity int, rate float64, failOpen bool) (*TokenB
 
 }
 
+// Improve debugging redis outage
+func (t *TokenBucket) logError(err error) {
+	now := time.Now().Unix()
+	last := t.lastLog.Load()
+	if now-last >= 10 && t.lastLog.CompareAndSwap(last, now) {
+		log.Printf("redislimiter: %v (failOpen=%v)", err, t.failOpen)
+	}
+}
+
 // Allow has the same shape as limiter.Store.Allow
 // No need to chaneg the middleware as it plugs into the middleware's Allower interface
 func (t *TokenBucket) Allow(key string) (bool, time.Duration) {
@@ -82,7 +94,11 @@ func (t *TokenBucket) Allow(key string) (bool, time.Duration) {
 	defer cancel()
 
 	res, err := script.Run(ctx, t.rdb, []string{t.prefix + key}, t.capacity, t.rate).Int64Slice()
-	if err != nil || len(res) != 2 {
+	if err == nil && len(res) != 2 {
+		err = errors.New("unexpected script result")
+	}
+	if err != nil {
+		t.logError(err)
 		return t.failOpen, 0
 	}
 	if res[0] == 1 {
