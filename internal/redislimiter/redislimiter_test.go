@@ -95,22 +95,3 @@ func TestInvalidArguments(t *testing.T) {
 	_, err = New(nil, 1, 0, false)
 	assert.Error(t, err)
 }
-
-func TestDebugAllow(t *testing.T) {
-	addr := os.Getenv("REDIS_ADDR")
-	if addr == "" {
-		t.Skip()
-	}
-	rdb := redis.NewClient(&redis.Options{Addr: addr})
-	defer rdb.Close()
-
-	l, err := New(rdb, 5, 0.1, false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for i := 1; i <= 8; i++ {
-		ok, retry := l.Allow("debug-allow")
-		t.Logf("request %d: allowed=%v retry=%v", i, ok, retry)
-	}
-	rdb.Del(context.Background(), "rl:debug-allow")
-}
