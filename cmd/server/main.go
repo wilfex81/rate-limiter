@@ -17,7 +17,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	chimw "github.com/go-chi/chi/v5/middleware"
 	"github.com/redis/go-redis/v9"
-	"github.com/wilfex81/rate-limiter/internal/limiter"
+	"github.com/wilfex81/rate-limiter/limiter"
 	"github.com/wilfex81/rate-limiter/internal/middleware"
 	"github.com/wilfex81/rate-limiter/internal/redislimiter"
 )

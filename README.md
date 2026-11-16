@@ -73,11 +73,11 @@ Behind a proxy, list it in `-trusted-proxies` (the compose file trusts only ngin
 
 ```
 cmd/server/main.go                server wiring: flags, router (chi), shutdown
-internal/limiter/limiter.go       the Limiter interface
-internal/limiter/fixedwindow.go   fixed window counter
-internal/limiter/slidingwindow.go sliding window counter
-internal/limiter/tokenbucket.go   token bucket
-internal/limiter/store.go         one limiter per client, idle cleanup
+limiter/limiter.go       the Limiter interface
+limiter/fixedwindow.go   fixed window counter
+limiter/slidingwindow.go sliding window counter
+limiter/tokenbucket.go   token bucket
+limiter/store.go         one limiter per client, idle cleanup
 internal/middleware/http.go       http.Handler wrapper, client IP, trusted proxies
 internal/redislimiter/            token bucket in Redis, one atomic Lua script
 docker-compose.yml, nginx.conf    Redis, two instances and nginx, one command
@@ -122,7 +122,7 @@ The main one starts two limiters against one Redis and checks that 20 attempts a
 ## Benchmarks
 
 ```bash
-go test -bench=. -benchmem ./internal/limiter/
+go test -bench=. -benchmem ./limiter/
 ```
 
 Intel Core i3-1005G1 (4 threads), linux/amd64. Parallel benchmarks, so ns/op is time per call across all threads.

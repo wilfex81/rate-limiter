@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/wilfex81/rate-limiter/internal/limiter"
+	"github.com/wilfex81/rate-limiter/limiter"
 )
 
 func newTestHandler(t *testing.T, limit int) http.Handler {
